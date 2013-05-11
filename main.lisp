@@ -6,8 +6,41 @@
 
 ;(in-package :4row)
 
-(ql:quickload 'lispbuilder-sdl)
-(ql:quickload 'lispbuilder-sdl-ttf)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload 'lispbuilder-sdl)
+  (ql:quickload 'lispbuilder-sdl-ttf)
+
+  (defun flatten (ls)
+    "Flatten a list of lists: ((a) (b)) becomes (a b)"
+    (reduce #'append ls))
+
+  ; Size of the board
+  ; no need to clean
+  (defparameter *width* 7)
+  (defparameter *height* 8)
+
+  (defparameter *board-plays* NIL)
+  (defparameter *board-cells*
+    (flatten (loop for x from 1 to *width* collect (loop for y from 1 to *height* collect `(,x ,y)))))
+
+  (defun index-cell-board (board-cells cell)
+    (position cell board-cells :test #'equal))
+
+  (defun index-cell (cell)
+    (index-cell-board *board-cells* cell))
+  
+  (defun get-column-board (board column)
+    (remove-if-not (lambda (cell) (= (car cell) column)) board))
+
+  (defun get-column (column)
+    (get-column-board *board-cells* column))
+
+  (defun check-if-cell-not-played (cell)
+    (= 0 (elt *board-plays* (index-cell cell))))
+
+
+  )
+
 
 ; Events to flush
 (defparameter *events* NIL)
@@ -23,10 +56,8 @@
       (setf *player* 2)
       (setf *player* 1)))
 
-; Size of the board
-; no need to clean
-(defparameter *width* 7)
-(defparameter *height* 8)
+;(defconstant W 7)
+;(defconstant H 8)
 
 (defun inc-x (delta)
   "Updates player's x, [1 .. width]"
@@ -37,9 +68,6 @@
       (setf new-x *width*))
     (setf *x* new-x)))
 
-(defun flatten (ls)
-  "Flatten a list of lists: ((a) (b)) becomes (a b)"
-  (reduce #'append ls))
 
 (defun set-nth (ls nth new-elem)
   "Set nth element of a list. Returns a new list!"
@@ -51,26 +79,6 @@
 
 ; "index" of board cells
 ; no need to clean
-(defparameter *board-cells*
-  (flatten (loop for x from 1 to *width* collect (loop for y from 1 to *height* collect `(,x ,y)))))
-
-(defparameter *board-plays* NIL)
-
-(defun index-cell-board (board-cells cell)
-  (position cell board-cells :test #'equal))
-
-(defun index-cell (cell)
-  (index-cell-board *board-cells* cell))
-
-(defun get-column-board (board column)
-  (remove-if-not (lambda (cell) (= (car cell) column)) board))
-
-(defun get-column (column)
-  (get-column-board *board-cells* column))
-
-(defun check-if-cell-not-played (cell)
-  (= 0 (elt *board-plays* (index-cell cell))))
-
 (defun play-at-column (player column)
   ; get column
   (let* ((column (get-column column))
@@ -102,14 +110,14 @@
 
 (defun check-board-4row (indexes)
   ; get head. if is zero we can exit immediatly
-  (let ((h (elt *board-plays* (car indexes))))
-    (if (= h 0)
+  (let ((head (elt *board-plays* (car indexes))))
+    (if (= head 0)
 	nil
 	(if (loop for idx in (cdr indexes)
 	     for play = (elt *board-plays* idx)
-	     always (= play h)
+	     always (= play head)
 	     )
-	    (multiple-value-bind (r) (intern (write-to-string h) "KEYWORD")
+	    (multiple-value-bind (r) (intern (write-to-string head) "KEYWORD")
 				  r)	    
 	    nil)
 	)))
@@ -117,28 +125,28 @@
 (defmacro make-check-wins ()
   (let ((vertical 
 	 (flatten 
-	  (loop for x from 1 to *width* collect 
-	       (loop for y from 1 to (+ 1 (- *height* 4)) collect
+	  (loop for x from 1 to *width* collect  ;*width*
+	       (loop for y from 1 to (+ 1 (- *height* 4)) collect ; *height*
 		    (loop for c from 0 to 3
 		       collect `(,x ,(+ y c)))))))
 	
 	(horizontal
 	 (flatten
-	  (loop for y from 1 to *height* collect
-	       (loop for x from 1 to (+ 1 (- *width* 4)) collect
+	  (loop for y from 1 to *height* collect ;*height*
+	       (loop for x from 1 to (+ 1 (- *width* 4)) collect ; *width*
 		    (loop for c from 0 to 3
 		       collect `(,(+ x c) ,y))))))
     
 	(diag-1
 	 (flatten 
-	  (loop for x from 1 to (+ 1 (- *width* 4)) collect 
-	       (loop for y from 1 to (+ 1 (- *height* 4)) collect 
+	  (loop for x from 1 to (+ 1 (- *width* 4)) collect  ; *width*
+	       (loop for y from 1 to (+ 1 (- *height* 4)) collect  ; *height*
 		    (loop for c from 0 to 3 collect `(,(+ x c) ,(+ y c)))))))
     
 	(diag-2
 	 (flatten
-	  (loop for x from (+ 1 (- *width* 4)) to *width* collect
-	       (loop for y from 1 to (+ 1 (- *height* 4)) collect
+	  (loop for x from (+ 1 (- *width* 4)) to *width* collect ; *width*
+	       (loop for y from 1 to (+ 1 (- *height* 4)) collect ; *height*
 		    (loop for c from 0 to 3 collect `(,(- x c) ,(+ y c))))))))
     
     (let* ((all (append vertical horizontal diag-1 diag-2))
@@ -233,8 +241,6 @@
 
 
 (defparameter *font-normal* NIL)
-
-
 
 (defun game-loop()
   "Stuff per-game loop; flush events, draws stuff"
