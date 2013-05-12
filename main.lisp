@@ -34,9 +34,11 @@
 
   (defun get-column (column)
     (get-column-board *board-cells* column))
-
-  (defun check-if-cell-not-played (cell)
-    (= 0 (elt *board-plays* (index-cell cell))))
+ 
+  (defun check-if-cell-not-played (board)
+    (lambda (cell) (= 0 (elt *board-plays* (index-cell cell)))))
+;  (defun check-if-cell-not-played (cell)
+;    (= 0 (elt *board-plays* (index-cell cell))))
   )
 
 
@@ -44,15 +46,20 @@
 (defparameter *events* NIL)
 ; Position of the pointer [1 .. width]
 (defparameter *x* NIL)
+; First player of game. Should alternate.
+(defparameter *first* NIL)
 ; Current player. 1 or 2
 (defparameter *player* NIL)
 ; :playing, :won-by-1, :won-by-2
 (defparameter *status* NIL)
 
+(defun switch-player-fn (player)
+  (if (= player 1)
+      2
+      1))			
+
 (defun switch-player ()
-  (if (= *player* 1)
-      (setf *player* 2)
-      (setf *player* 1)))
+  (setf *player* (switch-player-fn *player*)))
 
 ;(defconstant W 7)
 ;(defconstant H 8)
@@ -73,13 +80,20 @@
       (cons new-elem (cdr ls))
       (cons (car ls) (set-nth (cdr ls) (- nth 1) new-elem))))
 
-(defun check-column-can-play (column)
+
+(defun check-column-can-play-board (board column)
   "Returns (true, freecells) if we can play in a given column in a given board; 
 otherwise returns (NIL, NIL)"
   (let* ((col (get-column-board *board-cells* column))
 	 ; filter cells in column which are not played
-	 (free-cells (remove-if-not #'check-if-cell-not-played col)))
+	 (free-cells (remove-if-not (check-if-cell-not-played board) col)))
     (values (not (null free-cells)) free-cells)))
+
+
+(defun check-column-can-play (column)
+  "Returns (true, freecells) if we can play in a given column in a given board; 
+otherwise returns (NIL, NIL)"
+  (check-column-can-play-board *board-plays* column))
 
 
 (defun play-at-column-board (board player column)
@@ -175,6 +189,7 @@ If the play is valid, returns T and sets the new *board-plays*; oherwise returns
       )
     ))
 
+; makes (defun check-wins (board) ...)
 (make-check-wins)
 
 ; "index" of board cells centers
@@ -184,6 +199,31 @@ If the play is valid, returns T and sets the new *board-plays*; oherwise returns
 	    (let ((a (first x)) (b (second x)))
 	      `(,(+ (* a 30) 0) ,(+ (* b 30) 40))))
 	  *board-cells*))
+
+;; some AI -------------------------
+
+; make tree of possibilities. Simulate a game.
+
+(defun make-tree (current-player initial-board depth)
+  "Assumes that <current-player - 1> already played"
+  (let* ((cols-to-play (remove-if-not ; Get all valid moves
+			(lambda (_) (car _))
+			(loop for i from 1 to *width* collect
+			     `(,(check-column-can-play-board initial-board i) ,i))))
+	 
+	 (cols-to-play (mapcar #'cadr cols-to-play))
+	 
+	 (board-plays (mapcar 
+		       (lambda(_) (play-at-column-board initial-board current-player _)) 
+		       cols-to-play)))   
+    
+    
+    ; switch-player-fn
+    ;cols-to-play
+    board-plays))
+
+
+;; event processing -----------------
 
 (defun do-event (event)
   "Processes stuff for an event"
@@ -214,6 +254,8 @@ If the play is valid, returns T and sets the new *board-plays*; oherwise returns
 	(do-event event)
 	(flush-events))))
 
+
+;; -----------------------------------
 
 (defun draw-circle (cell)
   "Draws a cell"
