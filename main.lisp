@@ -37,8 +37,6 @@
 
   (defun check-if-cell-not-played (cell)
     (= 0 (elt *board-plays* (index-cell cell))))
-
-
   )
 
 
@@ -75,28 +73,37 @@
       (cons new-elem (cdr ls))
       (cons (car ls) (set-nth (cdr ls) (- nth 1) new-elem))))
 
-;(profile set-nth)
-
-; "index" of board cells
-; no need to clean
-(defun play-at-column (player column)
-  ; get column
-  (let* ((column (get-column column))
+(defun check-column-can-play (column)
+  "Returns (true, freecells) if we can play in a given column in a given board; 
+otherwise returns (NIL, NIL)"
+  (let* ((col (get-column-board *board-cells* column))
 	 ; filter cells in column which are not played
-	 (free-cells (remove-if-not #'check-if-cell-not-played column)))
-    
-    (if (null free-cells)
-	nil ; no free cells to play!
+	 (free-cells (remove-if-not #'check-if-cell-not-played col)))
+    (values (not (null free-cells)) free-cells)))
 
+
+(defun play-at-column-board (board player column)
+  "Plays at a given column in a given board. If it is not possible to play in a column,
+returns NIL; otherwise, plays and returns the new board"    
+  (multiple-value-bind (can-play free-cells) (check-column-can-play column)
+    (if can-play
 	; lets take the last free cell, and play in it!
 	(let* ((the-last (car (last free-cells)))
 	       (idx (index-cell the-last))
-	       (new-board-plays (set-nth *board-plays* idx player))) 
-	  (setf *board-plays* new-board-plays)
-	  t
-	  ))
-    )
-  )
+	       (new-board (set-nth board idx player)))
+	  new-board)
+	NIL)
+    ))
+
+(defun play-at-column (player column)
+  "Plays at a given column of the *board-plays*.
+If the play is valid, returns T and sets the new *board-plays*; oherwise returns NIL."
+  (let ((after-play (play-at-column-board *board-plays* player column)))
+    (if (null after-play)
+	nil
+	(progn
+	  (setf *board-plays* after-play)
+	  t))))
 
 ;(profile play-at-column)
 
@@ -160,7 +167,7 @@
 			     )))
 		   (if res
 		       res
-		       (if (null (remove-if-not (lambda(_) (= _ 0)) *board-plays*)) ; check if is a draw!
+		       (if (null (remove-if-not (lambda(_) (= _ 0)) board)) ; check if is a draw!
 			   :draw
 			   :playing) 
 		       ))		     
@@ -300,7 +307,7 @@
 ; main-loop
 (sdl:with-init ()  
   (sdl:window 720 480)
-  (sdl:enable-key-repeat 50 10)
+  (sdl:enable-key-repeat 500 100)
   (setf *font-normal* (sdl:initialise-font sdl:*font-8x8*))
   ; start a game
   (clean-env)
