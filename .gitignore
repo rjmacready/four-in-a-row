@@ -1,2 +1,4 @@
 *~
 *.fasl
+libSDL.so
+main
