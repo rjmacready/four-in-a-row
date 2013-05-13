@@ -8,7 +8,7 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (ql:quickload 'lispbuilder-sdl)
-  (ql:quickload 'lispbuilder-sdl-ttf)
+  ;(ql:quickload 'lispbuilder-sdl-ttf)
 
   (defun flatten (ls)
     "Flatten a list of lists: ((a) (b)) becomes (a b)"
